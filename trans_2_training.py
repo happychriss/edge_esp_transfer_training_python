@@ -37,13 +37,13 @@ FEATURES_TRAIN = 'wav_mytrain'
 FEATURES_TEST = 'wav_mytest'
 
 LOAD_WEIGHTS = 1  # 1 = load weights from model # 0 = dont load
-LOAD_WEIGHTS_MODEL_NAME = "ff_command_set_v2_weights.h5"
+LOAD_WEIGHTS_MODEL_NAME = "ffc_16kb_shift_v1_32_weights.h5"
 
-SAVE_MODEL = 1  # 1 = save model, 0 = dont save
-SAVED_MODEL_NAME = "transfer_trained_v1"
+SAVE_MODEL = 0  # 1 = save model, 0 = dont save
+SAVED_MODEL_NAME = "ffc_16kb_shift_v1_32"
 
-MODEL_LEARNING_RATE = 0.0005 #default is 0.001
-MODEL_EPOCHS = 70
+MODEL_LEARNING_RATE = 0.0005 #default is 0.001 for ffc, 0.0005 for transfer
+MODEL_EPOCHS = 70 # 130 for ffc, 70 for transfer
 ###################################################################################################
 
 
@@ -70,11 +70,12 @@ classes = len(classes_values)
 # Prepare Training and Testdata
 X_train = np.load(os.path.join(c.FEATURES_FOLDER, 'x_' + FEATURES_TRAIN) + '.npy')
 Y_train = np.load(os.path.join(c.FEATURES_FOLDER, 'y_' + FEATURES_TRAIN) + '.npy')
+Y_train = tf.keras.utils.to_categorical(Y_train, classes)
+
 X_test = np.load(os.path.join(c.FEATURES_FOLDER, 'x_' + FEATURES_TEST) + '.npy')
 Y_test = np.load(os.path.join(c.FEATURES_FOLDER, 'y_' + FEATURES_TEST) + '.npy')
+Y_test = tf.keras.utils.to_categorical(Y_test, classes)
 
-Y_test = tf.keras.utils.to_categorical(Y_test - 1, classes)
-Y_train = tf.keras.utils.to_categorical(Y_train - 1, classes)
 
 # plt.hist(Y, bins=11)
 # plt.show()
@@ -142,6 +143,8 @@ def train_test_model():
     channels = 1
     columns = 18
     rows = int(input_length / (columns * channels))
+
+
     # model.add(Reshape((rows, columns, channels), input_shape=(input_length,)))
     # model.add(Conv2D(8, kernel_size=3, activation='relu', kernel_constraint=tf.keras.constraints.MaxNorm(1), padding='same'))
     # model.add(MaxPooling2D(pool_size=2, strides=2, padding='same'))
@@ -152,17 +155,33 @@ def train_test_model():
     # model.add(Flatten())
     # model.add(Dense(classes, activation='softmax', name='y_pred'))
 
-    model.add(Reshape((int(input_length / 18), 18), input_shape=(input_length,)))
-    model.add(Conv1D(13, kernel_size=3, activation='relu', padding='same'))
-    model.add(MaxPooling1D(pool_size=2, strides=2, padding='same'))
-    model.add(Dropout(0.25))
-    model.add(Conv1D(23, kernel_size=3, activation='relu', padding='same'))
-    model.add(MaxPooling1D(pool_size=2, strides=2, padding='same'))
-    model.add(Dropout(0.25))
-    model.add(Flatten())
-    model.add(Dense(classes, activation='softmax', name='y_pred'))
+    # base model, full trained with ff command set
 
-    if LOAD_WEIGHTS == 1:
+    model.add(Reshape((int(input_length / 18), 18), input_shape=(input_length,)))
+
+    if SAVE_MODEL==1:
+
+        model.add(Conv1D(13, kernel_size=3, activation='relu', padding='same'))
+        model.add(MaxPooling1D(pool_size=2, strides=2, padding='same'))
+        model.add(Dropout(0.25))
+        model.add(Conv1D(23, kernel_size=3, activation='relu', padding='same'))
+        model.add(MaxPooling1D(pool_size=2, strides=2, padding='same'))
+        model.add(Dropout(0.25))
+        model.add(Flatten())
+        model.add(Dense(classes, activation='softmax', name='y_pred'))
+
+    # target model, to be trained with my voice - loading the weights from base model
+    if LOAD_WEIGHTS==1:
+
+        model.add(Conv1D(13, kernel_size=3, activation='relu', padding='same',trainable = False))
+        model.add(MaxPooling1D(pool_size=2, strides=2, padding='same',trainable = True))
+        model.add(Dropout(0.25))
+        model.add(Conv1D(23, kernel_size=3, activation='relu', padding='same',trainable = False))
+        model.add(MaxPooling1D(pool_size=2, strides=2, padding='same',trainable = False))
+        model.add(Dropout(0.25))
+        model.add(Flatten())
+        model.add(Dense(classes, activation='softmax', name='y_pred'))
+        # load the weights
         model.load_weights(os.path.join(c.MODELS_FOLDER, LOAD_WEIGHTS_MODEL_NAME))
 
     # this controls the learning rate
@@ -172,11 +191,12 @@ def train_test_model():
     #    g_train_dataset = g_train_dataset.map(sa.mapper(), tf.data.experimental.AUTOTUNE)
 
     # this controls the batch size, or you can manipulate the tf.data.Dataset objects yourself
-    BATCH_SIZE = 64
+    BATCH_SIZE = 32
     train_dataset, validation_dataset = set_batch_size(BATCH_SIZE, g_train_dataset, g_validation_dataset)
 
     # train the neural network
     model.compile(loss='categorical_crossentropy', optimizer=opt, metrics=['accuracy'])
+    model.summary()
 
     metrics_callback = tf.keras.callbacks.TensorBoard(log_dir=logdir,
                                                       histogram_freq=1,

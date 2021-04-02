@@ -20,21 +20,20 @@ import constants as c
 
 
 CLIPS_FOLDER = os.path.join(c.DATA_FOLDER, "clips")
-TRAIN_TSV = os.path.join(c.DATA_FOLDER,"train.tsv")
-TEST_TSV = os.path.join(c.DATA_FOLDER,"test.tsv")
 
-SOURCE_FILE = TEST_TSV
-TARGET_PATH = os.path.join(c.DATA_FOLDER,"wav_test")
+TYPE='train' # train or test
+TSV_FILE = os.path.join(c.DATA_FOLDER,TYPE+".tsv")
+TARGET_PATH = os.path.join(c.DATA_FOLDER,"wav_"+TYPE)
 
 RESULT_SET = c.RESULT_CLASSES
 INPUT_SET= c.RESULT_CLASSES_TXT
 
-
 SAMPLE_SAVE = 30
 SAMPLE_LENGTH = 700  # ms
+SAMPLE_SHIFT = 100 # Window
 MIN_VOICE_LENGHT = 170  # minimum lenght of a number (1,2,4)
 MAX_VOICE_LENGTH = 800  # maximum length (7) // used as check
-RUN_NAME = "0"
+RUN_NAME = "shift"
 
 NUMBER_OF_FILES = 50000
 
@@ -42,7 +41,7 @@ def random_code():
     tmp = ''.join((random.choice(string.ascii_letters + string.digits) for i in range(5)))
     return tmp
 
-with open(TEST_TSV, newline='') as csvfile:
+with open(TSV_FILE, newline='') as csvfile:
     file=csv.reader(csvfile, delimiter='\t', quotechar='"')
     next(file,None)
     no_of_files=0
@@ -67,9 +66,16 @@ with open(TEST_TSV, newline='') as csvfile:
                 sound_end = chunks[1][0] + SAMPLE_SAVE
                 silent_end = chunks[1][1] - SAMPLE_SAVE
                 if  MIN_VOICE_LENGHT <= sound_end-sound_start <= MAX_VOICE_LENGTH:
+                    my_filename = RESULT_SET[INPUT_SET.index(label)]+"."+ RUN_NAME + "_" + datetime.now().strftime("%Y%m%d_%H%M%S") + "_" + random_code()
+
                     sample=sound[sound_start:sound_start+SAMPLE_LENGTH]
-                    my_filename = RESULT_SET[INPUT_SET.index(label)]+"_"+ RUN_NAME + "_" + datetime.now().strftime("%Y%m%d_%H%M%S") + "_" + random_code() + ".wav"
-                    sample.export(os.path.join(TARGET_PATH, my_filename), format="wav")
+                    sample = sample.set_frame_rate(16000)
+                    sample.export(os.path.join(TARGET_PATH, my_filename+"_N.wav"), format="wav")
+
+                    sample=sound[sound_start+SAMPLE_SHIFT:sound_start+SAMPLE_LENGTH+SAMPLE_SHIFT]
+                    sample = sample.set_frame_rate(16000)
+                    sample.export(os.path.join(TARGET_PATH,  my_filename+"_S.wav"), format="wav")
+
                     print(".")
                 else:
                     print("Invalid sound lenght: "+ str(sound_end-sound_start) + "---" + str(chunks) +" for file: "+filename)

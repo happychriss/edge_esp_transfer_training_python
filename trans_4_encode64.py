@@ -9,7 +9,7 @@ import constants as c
 import os
 
 
-SOURCE_H5_MODEL=os.path.join(c.MODELS_FOLDER,"transfer_trained_v1_weights.h5")
+SOURCE_H5_MODEL=os.path.join(c.MODELS_FOLDER,"ffc_16kb_shift_v1_32_weights.h5")
 
 classes_values = c.RESULT_CLASSES
 classes = len(classes_values)

@@ -26,10 +26,28 @@ from tensorflow.keras.layers import Dense, InputLayer, Dropout, Conv1D, Conv2D, 
 from tensorflow.keras.optimizers import Adam
 import pandas as pd
 import matplotlib
+import constants as c
 
-model = keras.models.load_model('path/to/location')
-
+FEATURE_VALIDATION= 'wav_myvoice_validate'
+SOURCE_H5_MODEL=os.path.join(c.MODELS_FOLDER,"ffc_16kb_shift_v1_32")
+X_validate = np.load(os.path.join(c.FEATURES_FOLDER, 'x_' + FEATURE_VALIDATION) + '.npy')
+Y_validate = np.load(os.path.join(c.FEATURES_FOLDER, 'y_' + FEATURE_VALIDATION) + '.npy')
+Y_validate = tf.keras.utils.to_categorical(Y_validate, len(c.RESULT_CLASSES))
+model = keras.models.load_model(SOURCE_H5_MODEL)
 # Evaluate the model on the test data using `evaluate`
 print("Evaluate on test data")
-results = model.evaluate(x_test, y_test, batch_size=128)
+results = model.evaluate(X_validate, Y_validate, batch_size=128)
 print("test loss, test acc:", results)
+
+y_pred = model.predict(X_validate)
+
+cm = metrics.confusion_matrix(c.RESULT_CLASSES, y_pred)
+
+plt.imshow(cm, cmap=plt.cm.Blues)
+plt.xlabel("Predicted labels")
+plt.ylabel("True labels")
+plt.xticks([], [])
+plt.yticks([], [])
+plt.title('Confusion matrix ')
+plt.colorbar()
+plt.show()
